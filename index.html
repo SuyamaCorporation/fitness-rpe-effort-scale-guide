@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPE Effort Scale Guide</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+<div class="max-w-3xl mx-auto px-4 py-10">
+  <h1 class="text-3xl font-bold text-center mb-1 text-orange-400">RPE Effort Scale Guide</h1>
+  <p class="text-center text-gray-400 text-sm mb-2">Borg RPE (6–20) vs Borg CR-10 (0–10)</p>
+  <p class="text-center text-xs text-gray-500 mb-8">Click any level to highlight its equivalent on the other scale</p>
+
+  <div id="detailCard" class="hidden bg-gray-900 border border-orange-500/40 rounded-2xl p-5 mb-6 transition-all">
+    <div class="flex items-start gap-4">
+      <div id="detailBadge" class="text-4xl font-black w-16 h-16 flex items-center justify-center rounded-xl shrink-0"></div>
+      <div class="flex-1">
+        <div class="flex items-baseline gap-3 mb-1">
+          <span id="detailLabel" class="text-xl font-bold text-gray-100"></span>
+          <span id="detailScale" class="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded"></span>
+        </div>
+        <div id="detailHR" class="text-sm text-orange-300 mb-2"></div>
+        <div id="detailActivity" class="text-sm text-gray-300"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <h2 class="text-center text-sm font-semibold text-gray-300 mb-3">Borg RPE Scale (6–20)</h2>
+      <div id="borgScale" class="space-y-1"></div>
+    </div>
+    <div>
+      <h2 class="text-center text-sm font-semibold text-gray-300 mb-3">Borg CR-10 Scale (0–10)</h2>
+      <div id="cr10Scale" class="space-y-1"></div>
+    </div>
+  </div>
+
+  <p class="mt-8 text-xs text-gray-600 text-center">Borg RPE % HR estimate: (RPE × 10) ±10. CR-10 is nonlinear. For guidance only.</p>
+</div>
+
+<script>
+const borgData = [
+  {val:6,  label:"No exertion",      hr:"~60%",  activity:"Lying still, at rest"},
+  {val:7,  label:"Extremely light",  hr:"~65%",  activity:"Very slow walking on flat ground"},
+  {val:8,  label:"Extremely light+", hr:"~68%",  activity:"Gentle stretching"},
+  {val:9,  label:"Very light",       hr:"~70%",  activity:"Easy walking, slow pace"},
+  {val:10, label:"Very light+",      hr:"~73%",  activity:"Light housework"},
+  {val:11, label:"Light",            hr:"~75%",  activity:"Brisk walking, easy cycling"},
+  {val:12, label:"Light+",           hr:"~78%",  activity:"Easy jogging warm-up"},
+  {val:13, label:"Somewhat hard",    hr:"~80%",  activity:"Comfortable jogging, steady cycling"},
+  {val:14, label:"Somewhat hard+",   hr:"~83%",  activity:"Moderate jogging"},
+  {val:15, label:"Hard",             hr:"~85%",  activity:"Fast running, hard cycling"},
+  {val:16, label:"Hard+",            hr:"~88%",  activity:"Sustained hard effort"},
+  {val:17, label:"Very hard",        hr:"~90%",  activity:"Near-sprint pace, intense intervals"},
+  {val:18, label:"Very hard+",       hr:"~93%",  activity:"Approaching maximum sprint"},
+  {val:19, label:"Extremely hard",   hr:"~97%",  activity:"Maximum sustainable effort, almost sprinting"},
+  {val:20, label:"Maximal exertion", hr:"~100%", activity:"All-out sprint, absolute maximum"},
+];
+
+const cr10Data = [
+  {val:0,   label:"Nothing at all",   hr:"~60%",  activity:"Complete rest, no effort"},
+  {val:0.5, label:"Extremely weak",   hr:"~62%",  activity:"Barely noticeable exertion"},
+  {val:1,   label:"Very weak",        hr:"~65%",  activity:"Very light walking"},
+  {val:1.5, label:"Very weak+",       hr:"~68%",  activity:"Easy stretching or strolling"},
+  {val:2,   label:"Weak",             hr:"~70%",  activity:"Light movement, easy pace"},
+  {val:2.5, label:"Weak+",            hr:"~73%",  activity:"Easy cycling or slow jog"},
+  {val:3,   label:"Moderate",         hr:"~77%",  activity:"Brisk walk or easy jog"},
+  {val:4,   label:"Moderate+",        hr:"~80%",  activity:"Steady jogging"},
+  {val:5,   label:"Strong",           hr:"~83%",  activity:"Comfortably hard running"},
+  {val:6,   label:"Strong+",          hr:"~86%",  activity:"Hard run, pushing effort"},
+  {val:7,   label:"Very strong",      hr:"~90%",  activity:"Very hard run or intervals"},
+  {val:8,   label:"Very strong+",     hr:"~93%",  activity:"Near-maximum sprint"},
+  {val:9,   label:"Extremely strong", hr:"~97%",  activity:"Maximum sustained sprint"},
+  {val:10,  label:"Maximal",          hr:"~100%", activity:"Absolute maximum, all-out effort"},
+];
+
+function getColor(idx, total) {
+  const pct = idx / (total - 1);
+  if (pct < 0.25) return {bg:"bg-emerald-700", text:"text-emerald-100", border:"border-emerald-500"};
+  if (pct < 0.45) return {bg:"bg-teal-700",    text:"text-teal-100",    border:"border-teal-500"};
+  if (pct < 0.6)  return {bg:"bg-yellow-700",  text:"text-yellow-100",  border:"border-yellow-500"};
+  if (pct < 0.75) return {bg:"bg-orange-700",  text:"text-orange-100",  border:"border-orange-500"};
+  if (pct < 0.88) return {bg:"bg-red-700",     text:"text-red-100",     border:"border-red-500"};
+  return {bg:"bg-red-950", text:"text-red-200", border:"border-red-400"};
+}
+
+function mapBorgToCr10(borgVal) {
+  const norm = (borgVal - 6) / (20 - 6);
+  const cr10 = norm * 10;
+  let best = cr10Data[0], bestDist = Infinity;
+  cr10Data.forEach(d=>{if(Math.abs(d.val-cr10)<bestDist){bestDist=Math.abs(d.val-cr10);best=d;}});
+  return best;
+}
+
+function mapCr10ToBorg(cr10Val) {
+  const norm = cr10Val / 10;
+  const borg = norm * (20-6) + 6;
+  let best = borgData[0], bestDist = Infinity;
+  borgData.forEach(d=>{if(Math.abs(d.val-borg)<bestDist){bestDist=Math.abs(d.val-borg);best=d;}});
+  return best;
+}
+
+let activeSource = null;
+let activeVal = null;
+
+function showDetail(data, scale, colors) {
+  document.getElementById("detailCard").classList.remove("hidden");
+  const badge = document.getElementById("detailBadge");
+  badge.textContent = data.val;
+  badge.className = `text-3xl font-black w-16 h-16 flex items-center justify-center rounded-xl shrink-0 ${colors.bg} ${colors.text}`;
+  document.getElementById("detailLabel").textContent = data.label;
+  document.getElementById("detailScale").textContent = scale;
+  document.getElementById("detailHR").textContent = `Estimated HR: ${data.hr} max`;
+  document.getElementById("detailActivity").textContent = `Example: ${data.activity}`;
+}
+
+function highlightBorg(borgEntry, colors) {
+  document.querySelectorAll(".borg-row").forEach(el=>{
+    const isActive = parseInt(el.dataset.val) === borgEntry.val;
+    el.className = `borg-row flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer border transition-all ${
+      isActive
+        ? `${colors.bg} ${colors.border} border-2`
+        : "bg-gray-900 border border-gray-800 hover:border-gray-600"
+    }`;
+  });
+}
+
+function highlightCr10(cr10Entry, colors) {
+  document.querySelectorAll(".cr10-row").forEach(el=>{
+    const isActive = parseFloat(el.dataset.val) === cr10Entry.val;
+    el.className = `cr10-row flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer border transition-all ${
+      isActive
+        ? `${colors.bg} ${colors.border} border-2`
+        : "bg-gray-900 border border-gray-800 hover:border-gray-600"
+    }`;
+  });
+}
+
+function buildBorg() {
+  const container = document.getElementById("borgScale");
+  borgData.forEach((d, i) => {
+    const c = getColor(i, borgData.length);
+    const row = document.createElement("div");
+    row.className = "borg-row flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer border border-gray-800 bg-gray-900 hover:border-gray-600 transition-all";
+    row.dataset.val = d.val;
+    row.setAttribute("role","button");
+    row.setAttribute("aria-label",`RPE ${d.val}: ${d.label}`);
+    row.innerHTML = `
+      <span class="text-sm font-bold w-6 text-center ${c.text}">${d.val}</span>
+      <span class="text-xs text-gray-300 flex-1">${d.label}</span>`;
+    row.addEventListener("click",()=>{
+      const mapped = mapBorgToCr10(d.val);
+      const ci = cr10Data.indexOf(mapped);
+      const colors = getColor(i, borgData.length);
+      highlightBorg(d, colors);
+      highlightCr10(mapped, getColor(ci, cr10Data.length));
+      showDetail(d, "Borg RPE", colors);
+    });
+    container.appendChild(row);
+  });
+}
+
+function buildCr10() {
+  const container = document.getElementById("cr10Scale");
+  cr10Data.forEach((d, i) => {
+    const c = getColor(i, cr10Data.length);
+    const row = document.createElement("div");
+    row.className = "cr10-row flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer border border-gray-800 bg-gray-900 hover:border-gray-600 transition-all";
+    row.dataset.val = d.val;
+    row.setAttribute("role","button");
+    row.setAttribute("aria-label",`CR-10 ${d.val}: ${d.label}`);
+    row.innerHTML = `
+      <span class="text-sm font-bold w-8 text-center ${c.text}">${d.val}</span>
+      <span class="text-xs text-gray-300 flex-1">${d.label}</span>`;
+    row.addEventListener("click",()=>{
+      const mapped = mapCr10ToBorg(d.val);
+      const bi = borgData.indexOf(mapped);
+      const colors = getColor(i, cr10Data.length);
+      highlightCr10(d, colors);
+      highlightBorg(mapped, getColor(bi, borgData.length));
+      showDetail(d, "Borg CR-10", colors);
+    });
+    container.appendChild(row);
+  });
+}
+
+buildBorg();
+buildCr10();
+</script>
+</body>
+</html>
